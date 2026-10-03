@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linux Process Management Monitor (Pastel Theme)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        pastel: {
+                            bg: '#F6F8FD',
+                            card: '#FFFFFF',
+                            mint: '#A8E6CF',
+                            mintLight: '#E8F8F1',
+                            mintDark: '#2E7D5B',
+                            lavender: '#D8B4F8',
+                            lavenderLight: '#F3E8FF',
+                            lavenderDark: '#7E22CE',
+                            blue: '#93C5FD',
+                            blueLight: '#E0F2FE',
+                            blueDark: '#0369A1',
+                            pink: '#FBCFE8',
+                            pinkLight: '#FCE7F3',
+                            pinkDark: '#BE185D',
+                            peach: '#FFD3B6',
+                            peachLight: '#FFEDD5',
+                            peachDark: '#C2410C',
+                            gray: '#64748B',
+                            grayLight: '#F1F5F9',
+                            dark: '#334155'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar styling for clean pastel look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+        .tree-line {
+            position: relative;
+        }
+        .tree-line::before {
+            content: '';
+            position: absolute;
+            left: -16px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #E2E8F0;
+        }
+    </style>
+</head>
+<body class="bg-pastel-bg text-pastel-dark font-sans h-full flex flex-col antialiased selection:bg-pastel-lavender selection:text-pastel-lavenderDark">
+
+    <!-- Header Navigation & System Status -->
+    <header class="bg-white/80 backdrop-blur-md border-b border-purple-100 sticky top-0 z-30 px-4 lg:px-8 py-3 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <!-- Brand & Host Info -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pastel-mint via-pastel-blue to-pastel-lavender flex items-center justify-center shadow-sm text-white font-bold text-xl">
+                    <i class="fa-solid font-mono text-slate-700">🐧</i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="font-bold text-lg text-slate-800 tracking-tight">Linux Process Monitor</h1>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-pastel-mintLight text-pastel-mintDark border border-emerald-200">
+                            <i class="fa-solid fa-server mr-1 text-[10px]"></i><span id="sys-hostname">ubuntu-pastel-node-01</span>
+                        </span>
+                    </div>
+                    <p class="text-xs text-pastel-gray font-mono mt-0.5">
+                        Kernel: <span id="sys-kernel" class="text-slate-700 font-medium">Linux 6.8.0-pastel-x86_64</span> | 
+                        Uptime: <span id="sys-uptime" class="text-slate-700 font-medium">00:00:00</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Global Action Controls -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Auto Refresh Selector -->
+                <div class="flex items-center bg-pastel-grayLight p-1 rounded-xl border border-slate-200 text-xs font-medium">
+                    <span class="px-2 text-pastel-gray"><i class="fa-solid fa-arrows-rotate mr-1"></i>Refresh:</span>
+                    <button onclick="setRefreshInterval(1000)" id="ref-1s" class="px-2.5 py-1 rounded-lg transition-all bg-white shadow-xs text-purple-700 font-semibold">1s</button>
+                    <button onclick="setRefreshInterval(2000)" id="ref-2s" class="px-2.5 py-1 rounded-lg transition-all text-slate-600 hover:text-slate-900">2s</button>
+                    <button onclick="setRefreshInterval(5000)" id="ref-5s" class="px-2.5 py-1 rounded-lg transition-all text-slate-600 hover:text-slate-900">5s</button>
+                    <button onclick="togglePause()" id="ref-pause" class="px-2.5 py-1 rounded-lg transition-all text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                </div>
+
+                <!-- Action Buttons -->
+                <button onclick="spawnRandomProcess()" class="bg-pastel-mintLight hover:bg-emerald-200 text-pastel-mintDark border border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center space-x-1 active:scale-95">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>สุ่มสร้าง Process</span>
+                </button>
+
+                <button onclick="toggleStressTest()" id="stress-btn" class="bg-pastel-peachLight hover:bg-orange-200 text-pastel-peachDark border border-orange-300 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center space-x-1 active:scale-95">
+                    <i class="fa-solid fa-bolt text-xs"></i>
+                    <span id="stress-btn-text">Stress Test CPU</span>
+                </button>
+
+                <button onclick="resetSystem()" class="bg-pastel-pinkLight hover:bg-rose-200 text-pastel-pinkDark border border-pink-300 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center space-x-1 active:scale-95">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span>Reset ระบบ</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-6 flex-1">
+        
+        <!-- System Gauges & Summary Cards Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            <!-- CPU Monitor Panel (7 Cols) -->
+            <div class="lg:col-span-7 bg-white rounded-2xl p-5 border border-purple-100 shadow-sm flex flex-col justify-between space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-7 h-7 rounded-lg bg-pastel-lavenderLight flex items-center justify-center text-pastel-lavenderDark font-bold">
+                            <i class="fa-solid fa-microchip text-sm"></i>
+                        </div>
+                        <h2 class="font-bold text-slate-800 text-sm">CPU Core Usage (8 Cores)</h2>
+                    </div>
+                    <div class="text-right">
+                        <span id="overall-cpu-text" class="text-lg font-bold font-mono text-purple-700">0.0%</span>
+                        <span class="text-xs text-pastel-gray ml-1">Load: <span id="load-avg-text" class="font-mono text-slate-700">0.42, 0.38, 0.25</span></span>
+                    </div>
+                </div>
+
+                <!-- 8 Cores Grid Gauges -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <!-- Core bars inserted via JS -->
+                    <div id="cpu-cores-container" class="contents"></div>
+                </div>
+
+                <!-- Canvas CPU Live Chart -->
+                <div class="pt-2">
+                    <div class="flex justify-between items-center text-xs text-pastel-gray mb-1">
+                        <span>ประวัติการใช้งาน CPU (30 วินาทีล่าสุด)</span>
+                        <span class="text-[10px] text-slate-400">100% Max</span>
+                    </div>
+                    <div class="h-20 w-full bg-slate-50 rounded-xl overflow-hidden border border-slate-100 relative">
+                        <canvas id="cpuChart" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RAM, Swap & Metrics Cards (5 Cols) -->
+            <div class="lg:col-span-5 space-y-5 flex flex-col justify-between">
+                
+                <!-- RAM & Swap Card -->
+                <div class="bg-white rounded-2xl p-5 border border-purple-100 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-7 h-7 rounded-lg bg-pastel-blueLight flex items-center justify-center text-pastel-blueDark font-bold">
+                                <i class="fa-solid fa-memory text-sm"></i>
+                            </div>
+                            <h2 class="font-bold text-slate-800 text-sm">Memory & Swap Monitor</h2>
+                        </div>
+                        <span id="ram-percent-text" class="text-sm font-bold font-mono text-sky-700">0.0%</span>
+                    </div>
+
+                    <!-- RAM Stacked Bar -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs font-medium text-slate-600">
+                            <span>RAM Physical (16.0 GB Total)</span>
+                            <span id="ram-usage-text" class="font-mono">0.0 / 16.0 GB</span>
+                        </div>
+                        <div class="h-4 w-full bg-slate-100 rounded-lg overflow-hidden flex p-0.5 space-x-0.5">
+                            <div id="ram-used-bar" class="bg-pastel-blue rounded-md transition-all duration-500 h-full" style="width: 30%" title="Used RAM"></div>
+                            <div id="ram-cached-bar" class="bg-pastel-lavender rounded-md transition-all duration-500 h-full" style="width: 20%" title="Cached RAM"></div>
+                            <div id="ram-free-bar" class="bg-slate-200 rounded-md transition-all duration-500 h-full" style="width: 50%" title="Free RAM"></div>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-pastel-gray px-1">
+                            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-pastel-blue inline-block mr-1"></span> Used: <b id="ram-used-mb" class="ml-1 text-slate-700 font-mono">0 MB</b></span>
+                            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-pastel-lavender inline-block mr-1"></span> Buff/Cache: <b id="ram-cache-mb" class="ml-1 text-slate-700 font-mono">0 MB</b></span>
+                            <span class="flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-slate-300 inline-block mr-1"></span> Free: <b id="ram-free-mb" class="ml-1 text-slate-700 font-mono">0 MB</b></span>
+                        </div>
+                    </div>
+
+                    <!-- Swap Progress Bar -->
+                    <div class="space-y-1.5 pt-1 border-t border-slate-100">
+                        <div class="flex justify-between text-xs font-medium text-slate-600">
+                            <span>Swap Space (4.0 GB Total)</span>
+                            <span id="swap-usage-text" class="font-mono">0.2 / 4.0 GB</span>
+                        </div>
+                        <div class="h-2.5 w-full bg-slate-100 rounded-md overflow-hidden">
+                            <div id="swap-bar" class="bg-pastel-pink h-full rounded-md transition-all duration-500" style="width: 5%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Process Quick Metrics Cards Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-white rounded-2xl p-3 border border-purple-100 shadow-sm flex flex-col items-center justify-center text-center">
+                        <span class="text-[11px] font-medium text-pastel-gray mb-1">Total Processes</span>
+                        <span id="metric-total" class="text-xl font-bold font-mono text-slate-800">0</span>
+                    </div>
+                    <div class="bg-pastel-mintLight/60 rounded-2xl p-3 border border-emerald-200/60 shadow-sm flex flex-col items-center justify-center text-center">
+                        <span class="text-[11px] font-semibold text-pastel-mintDark mb-1">Running</span>
+                        <span id="metric-running" class="text-xl font-bold font-mono text-emerald-700">0</span>
+                    </div>
+                    <div class="bg-pastel-blueLight/60 rounded-2xl p-3 border border-sky-200/60 shadow-sm flex flex-col items-center justify-center text-center">
+                        <span class="text-[11px] font-semibold text-pastel-blueDark mb-1">Sleeping</span>
+                        <span id="metric-sleeping" class="text-xl font-bold font-mono text-sky-700">0</span>
+                    </div>
+                    <div class="bg-pastel-peachLight/60 rounded-2xl p-3 border border-orange-200/60 shadow-sm flex flex-col items-center justify-center text-center">
+                        <span class="text-[11px] font-semibold text-pastel-peachDark mb-1">Stopped / Zombie</span>
+                        <div class="flex items-baseline space-x-1">
+                            <span id="metric-stopped" class="text-lg font-bold font-mono text-amber-700">0</span>
+                            <span class="text-xs text-slate-400">/</span>
+                            <span id="metric-zombie" class="text-lg font-bold font-mono text-rose-700">0</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Main Process Section with Tabs & Filters -->
+        <div class="bg-white rounded-2xl border border-purple-100 shadow-sm overflow-hidden flex flex-col">
+            
+            <!-- Controls Bar: View Tabs, Search, Filters -->
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                
+                <!-- View Tabs Switcher -->
+                <div class="flex items-center bg-slate-200/70 p-1 rounded-xl w-full md:w-auto">
+                    <button id="tab-table" onclick="switchView('table')" class="flex-1 md:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-purple-800 shadow-xs flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-list-ul"></i>
+                        <span>รายการแบบตาราง (Flat View)</span>
+                    </button>
+                    <button id="tab-tree" onclick="switchView('tree')" class="flex-1 md:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-sitemap"></i>
+                        <span>โครงสร้างพุ่ม (Tree View)</span>
+                    </button>
+                </div>
+
+                <!-- Search Input & Filters -->
+                <div class="flex flex-wrap items-center gap-2 flex-1 justify-end">
+                    <!-- Search Input -->
+                    <div class="relative min-w-[200px] flex-1 sm:flex-initial">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="search-input" oninput="handleSearch()" placeholder="ค้นหา Process Name หรือ PID..." class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pastel-lavender transition-all">
+                    </div>
+
+                    <!-- Status Filter -->
+                    <select id="filter-status" onchange="handleFilterChange()" class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-pastel-lavender">
+                        <option value="ALL">สถานะทั้งหมด</option>
+                        <option value="Running">Running Only</option>
+                        <option value="Sleeping">Sleeping Only</option>
+                        <option value="Stopped">Stopped Only</option>
+                        <option value="Zombie">Zombie Only</option>
+                    </select>
+
+                    <!-- User Filter -->
+                    <select id="filter-user" onchange="handleFilterChange()" class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-pastel-lavender">
+                        <option value="ALL">ผู้ใช้ทั้งหมด (All Users)</option>
+                        <option value="root">root</option>
+                        <option value="pastel">pastel</option>
+                        <option value="www-data">www-data</option>
+                        <option value="redis">redis</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- View Container 1: Flat Table View -->
+            <div id="view-table-container" class="overflow-x-auto min-h-[350px]">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase border-b border-slate-100 tracking-wider">
+                            <th onclick="sortTable('pid')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none">
+                                PID <i id="sort-icon-pid" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th onclick="sortTable('name')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none">
+                                Process Name <i id="sort-icon-name" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th onclick="sortTable('user')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none">
+                                User <i id="sort-icon-user" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th onclick="sortTable('status')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none">
+                                Status <i id="sort-icon-status" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th onclick="sortTable('cpu')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none text-right">
+                                CPU % <i id="sort-icon-cpu" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th onclick="sortTable('ram')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none text-right">
+                                RAM (MB) <i id="sort-icon-ram" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th onclick="sortTable('nice')" class="py-3 px-4 cursor-pointer hover:text-purple-700 transition-colors select-none text-center">
+                                Nice <i id="sort-icon-nice" class="fa-solid fa-sort ml-1 opacity-50"></i>
+                            </th>
+                            <th class="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="process-table-body" class="divide-y divide-slate-100 text-xs">
+                        <!-- Table rows generated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- View Container 2: Process Tree View -->
+            <div id="view-tree-container" class="p-6 hidden min-h-[350px] overflow-x-auto">
+                <div id="process-tree-root" class="space-y-2 font-mono text-xs">
+                    <!-- Tree items rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Table Footer Stats -->
+            <div class="px-4 py-2.5 bg-slate-50/80 border-t border-slate-100 text-xs text-pastel-gray flex items-center justify-between">
+                <div>แสดง <span id="showing-count" class="font-bold text-slate-700">0</span> จากทั้งหมด <span id="total-count" class="font-bold text-slate-700">0</span> Processes</div>
+                <div class="text-[11px] text-slate-400">คลิกที่แถวหรือปุ่ม "จัดการ" เพื่อส่ง Signal หรือเปลี่ยน Nice Priority</div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Process Management & Signals Controller -->
+    <div id="process-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 hidden transition-all duration-300">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-xl border border-purple-100 transform transition-all scale-95 opacity-0" id="modal-card">
+            
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-pastel-lavenderLight text-pastel-lavenderDark flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-terminal"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h3 id="modal-process-name" class="font-bold text-base text-slate-800 font-mono">python3 app.py</h3>
+                            <span id="modal-process-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold">Running</span>
+                        </div>
+                        <p class="text-xs text-pastel-gray">PID: <span id="modal-process-pid" class="font-mono font-semibold text-slate-700">1450</span> | PPID: <span id="modal-process-ppid" class="font-mono text-slate-700">1102</span></p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Info Grid -->
+            <div class="grid grid-cols-2 gap-3 py-4 text-xs">
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 block text-[10px]">User Owner</span>
+                    <span id="modal-process-user" class="font-semibold text-slate-700 font-mono">pastel</span>
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 block text-[10px]">Active Threads</span>
+                    <span id="modal-process-threads" class="font-semibold text-slate-700 font-mono">4 threads</span>
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 block text-[10px]">CPU Usage</span>
+                    <span id="modal-process-cpu" class="font-semibold text-purple-700 font-mono">14.2%</span>
+                </div>
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span class="text-slate-400 block text-[10px]">Memory Used</span>
+                    <span id="modal-process-ram" class="font-semibold text-sky-700 font-mono">145.8 MB</span>
+                </div>
+            </div>
+
+            <!-- Nice Priority Slider Section -->
+            <div class="space-y-2 py-2 border-t border-slate-100">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-medium text-slate-700">ปรับค่า Nice (Priority):</span>
+                    <span id="modal-nice-value" class="font-mono font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md">0</span>
+                </div>
+                <input type="range" id="modal-nice-slider" min="-20" max="19" value="0" oninput="updateNiceDisplay(this.value)" class="w-full accent-purple-500 cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+                    <span>-20 (Highest Priority)</span>
+                    <span>0 (Normal)</span>
+                    <span>19 (Lowest Priority)</span>
+                </div>
+                <button onclick="applyNiceChange()" class="w-full mt-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium py-1.5 rounded-xl transition-all">
+                    <i class="fa-solid fa-sliders mr-1"></i> บันทึกค่า Nice Priority
+                </button>
+            </div>
+
+            <!-- Signal Control Actions -->
+            <div class="space-y-2 pt-3 border-t border-slate-100">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">ส่ง Signal ควบคุม Process:</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="sendSignal('SIGTERM')" class="bg-pastel-peachLight hover:bg-orange-200 text-pastel-peachDark border border-orange-200 p-2 rounded-xl text-xs font-semibold text-left transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-power-off text-sm"></i>
+                        <div>
+                            <div>SIGTERM (15)</div>
+                            <div class="text-[9px] font-normal opacity-80">ร้องขอปิดโปรแกรม</div>
+                        </div>
+                    </button>
+                    
+                    <button onclick="sendSignal('SIGKILL')" class="bg-pastel-pinkLight hover:bg-rose-200 text-pastel-pinkDark border border-pink-200 p-2 rounded-xl text-xs font-semibold text-left transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-skull text-sm"></i>
+                        <div>
+                            <div>SIGKILL (9)</div>
+                            <div class="text-[9px] font-normal opacity-80">ยุติทำงานทันที</div>
+                        </div>
+                    </button>
+
+                    <button onclick="sendSignal('SIGSTOP')" class="bg-pastel-blueLight hover:bg-sky-200 text-pastel-blueDark border border-sky-200 p-2 rounded-xl text-xs font-semibold text-left transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-pause text-sm"></i>
+                        <div>
+                            <div>SIGSTOP (19)</div>
+                            <div class="text-[9px] font-normal opacity-80">หยุดทำงานชั่วคราว</div>
+                        </div>
+                    </button>
+
+                    <button onclick="sendSignal('SIGCONT')" class="bg-pastel-mintLight hover:bg-emerald-200 text-pastel-mintDark border border-emerald-200 p-2 rounded-xl text-xs font-semibold text-left transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-play text-sm"></i>
+                        <div>
+                            <div>SIGCONT (18)</div>
+                            <div class="text-[9px] font-normal opacity-80">ให้กลับมาทำงานต่อ</div>
+                        </div>
+                    </button>
+                </div>
+
+                <button onclick="sendSignal('SIGINT')" class="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 p-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center space-x-2 mt-2">
+                    <i class="fa-solid fa-ban text-xs"></i>
+                    <span>ส่ง SIGINT (2) - Interrupt (Ctrl+C)</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Pastel Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 max-w-sm pointer-events-none">
+        <!-- Toast items inserted dynamically -->
+    </div>
+
+    <script>
+        // Global State & Simulation Data
+        let refreshInterval = 1000;
+        let timerId = null;
+        let isPaused = false;
+        let isStressTesting = false;
+        let currentView = 'table'; // 'table' or 'tree'
+        let selectedProcessPid = null;
+
+        let searchKeyword = '';
+        let statusFilter = 'ALL';
+        let userFilter = 'ALL';
+
+        let sortColumn = 'cpu';
+        let sortDirection = 'desc';
+
+        // CPU Sparkline History Array (30 data points)
+        let cpuHistory = Array(30).fill(15);
+
+        // Core Usage percentages (8 Cores)
+        let coreUsages = [12, 18, 5, 24, 8, 15, 30, 10];
+
+        // System processes initial mock list
+        let processes = [
+            { pid: 1, ppid: 0, name: 'systemd', user: 'root', cpu: 0.1, ram: 14.2, status: 'Running', nice: 0, threads: 1, expanded: true },
+            { pid: 412, ppid: 1, name: 'systemd-journald', user: 'root', cpu: 0.0, ram: 18.5, status: 'Sleeping', nice: -10, threads: 1, expanded: true },
+            { pid: 650, ppid: 1, name: 'sshd', user: 'root', cpu: 0.0, ram: 9.1, status: 'Sleeping', nice: 0, threads: 2, expanded: true },
+            { pid: 890, ppid: 650, name: 'bash', user: 'pastel', cpu: 0.0, ram: 6.4, status: 'Sleeping', nice: 0, threads: 1, expanded: true },
+            { pid: 1450, ppid: 890, name: 'python3 app.py', user: 'pastel', cpu: 15.4, ram: 148.2, status: 'Running', nice: 0, threads: 4, expanded: true },
+            { pid: 920, ppid: 1, name: 'lightdm', user: 'root', cpu: 0.2, ram: 34.0, status: 'Sleeping', nice: 0, threads: 3, expanded: true },
+            { pid: 1205, ppid: 920, name: 'gnome-shell', user: 'pastel', cpu: 5.2, ram: 310.8, status: 'Running', nice: 0, threads: 18, expanded: true },
+            { pid: 1620, ppid: 1205, name: 'chrome', user: 'pastel', cpu: 8.8, ram: 520.4, status: 'Running', nice: 0, threads: 32, expanded: true },
+            { pid: 1680, ppid: 1620, name: 'chrome --type=renderer', user: 'pastel', cpu: 14.1, ram: 285.0, status: 'Running', nice: 5, threads: 12, expanded: true },
+            { pid: 1685, ppid: 1620, name: 'chrome --type=gpu-process', user: 'pastel', cpu: 4.2, ram: 195.1, status: 'Running', nice: 0, threads: 8, expanded: true },
+            { pid: 2100, ppid: 1, name: 'dockerd', user: 'root', cpu: 1.2, ram: 102.4, status: 'Sleeping', nice: -5, threads: 14, expanded: true },
+            { pid: 2340, ppid: 2100, name: 'containerd-shim', user: 'root', cpu: 0.4, ram: 22.8, status: 'Sleeping', nice: 0, threads: 6, expanded: true },
+            { pid: 3105, ppid: 1, name: 'redis-server', user: 'redis', cpu: 0.9, ram: 45.2, status: 'Sleeping', nice: -2, threads: 4, expanded: true },
+            { pid: 3420, ppid: 1, name: 'nginx: master', user: 'root', cpu: 0.0, ram: 12.8, status: 'Sleeping', nice: 0, threads: 1, expanded: true },
+            { pid: 3421, ppid: 3420, name: 'nginx: worker', user: 'www-data', cpu: 2.1, ram: 24.6, status: 'Running', nice: 0, threads: 1, expanded: true },
+            { pid: 4010, ppid: 1, name: 'zombie_defunct', user: 'pastel', cpu: 0.0, ram: 0.0, status: 'Zombie', nice: 0, threads: 0, expanded: true }
+        ];
+
+        let uptimeSeconds = 12450;
+
+        window.onload = function () {
+            renderCores();
+            initChart();
+            startLoop();
+            updateUI();
+        };
+
+        // Timer Loop Control
+        function startLoop() {
+            if (timerId) clearInterval(timerId);
+            timerId = setInterval(() => {
+                if (!isPaused) {
+                    tickSimulation();
+                    updateUI();
+                }
+            }, refreshInterval);
+        }
+
+        function setRefreshInterval(ms) {
+            refreshInterval = ms;
+            isPaused = false;
+            
+            // Highlight active button
+            ['1s', '2s', '5s'].forEach(id => {
+                const btn = document.getElementById(`ref-${id}`);
+                btn.className = 'px-2.5 py-1 rounded-lg transition-all text-slate-600 hover:text-slate-900';
+            });
+            const activeBtn = document.getElementById(`ref-${ms/1000}s`);
+            if (activeBtn) activeBtn.className = 'px-2.5 py-1 rounded-lg transition-all bg-white shadow-xs text-purple-700 font-semibold';
+            
+            document.getElementById('ref-pause').className = 'px-2.5 py-1 rounded-lg transition-all text-slate-600 hover:text-slate-900';
+            startLoop();
+            showToast('อัปเดตช่วงเวลา Refresh เป็น ' + (ms/1000) + 's', 'info');
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('ref-pause');
+            if (isPaused) {
+                pauseBtn.className = 'px-2.5 py-1 rounded-lg transition-all bg-amber-100 text-amber-700 font-bold';
+                showToast('หยุดการอัปเดตข้อมูลชั่วคราว', 'warning');
+            } else {
+                pauseBtn.className = 'px-2.5 py-1 rounded-lg transition-all text-slate-600 hover:text-slate-900';
+                showToast('เริ่มอัปเดตข้อมูล Real-time ต่อ', 'info');
+            }
+        }
+
+        function tickSimulation() {
+            uptimeSeconds++;
+
+            // Fluctuate process stats
+            processes.forEach(p => {
+                if (p.status === 'Running') {
+                    // CPU oscillation based on stress test mode
+                    let baseCpu = isStressTesting ? (Math.random() * 40 + 20) : (Math.random() * 8 + 0.5);
+                    p.cpu = parseFloat((baseCpu * (1 - p.nice * 0.02)).toFixed(1));
+                    p.cpu = Math.max(0.1, Math.min(99.9, p.cpu));
+                    
+                    // RAM slight variation
+                    let ramDelta = (Math.random() - 0.48) * 1.5;
+                    p.ram = parseFloat(Math.max(1.0, p.ram + ramDelta).toFixed(1));
+                } else if (p.status === 'Stopped' || p.status === 'Zombie') {
+                    p.cpu = 0.0;
+                } else {
+                    // Sleeping
+                    p.cpu = Math.random() < 0.2 ? parseFloat((Math.random() * 1.5).toFixed(1)) : 0.0;
+                }
+            });
+
+            // Random auto spawn or terminate rare background tasks
+            if (Math.random() < 0.1 && processes.length < 25) {
+                autoSpawnMinorTask();
+            }
+
+            // Calculate overall CPU
+            let totalCpuSum = processes.reduce((acc, p) => acc + p.cpu, 0);
+            let avgCpu = totalCpuSum / 8; // distributed among 8 cores
+            if (isStressTesting) avgCpu += Math.random() * 30 + 55;
+            avgCpu = Math.min(100, Math.max(2, avgCpu));
+
+            // Shift Sparkline array
+            cpuHistory.shift();
+            cpuHistory.push(avgCpu);
+
+            // Calculate core values
+            coreUsages = coreUsages.map(() => {
+                let val = avgCpu + (Math.random() * 16 - 8);
+                return Math.min(100, Math.max(1, Math.round(val)));
+            });
+        }
+
+        function renderCores() {
+            const container = document.getElementById('cpu-cores-container');
+            container.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const coreDiv = document.createElement('div');
+                coreDiv.className = 'bg-slate-50 p-2 rounded-xl border border-slate-100 flex flex-col justify-between space-y-1';
+                coreDiv.innerHTML = `
+                    <div class="flex justify-between items-center text-[11px] font-mono">
+                        <span class="text-slate-500">Core ${i}</span>
+                        <span id="core-val-${i}" class="font-semibold text-purple-700">0%</span>
+                    </div>
+                    <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div id="core-bar-${i}" class="bg-gradient-to-r from-pastel-mint via-pastel-blue to-pastel-lavender h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                `;
+                container.appendChild(coreDiv);
+            }
+        }
+
+        function updateCoresUI() {
+            for (let i = 0; i < 8; i++) {
+                const val = coreUsages[i];
+                const valElem = document.getElementById(`core-val-${i}`);
+                const barElem = document.getElementById(`core-bar-${i}`);
+                if (valElem && barElem) {
+                    valElem.innerText = `${val}%`;
+                    barElem.style.width = `${val}%`;
+                }
+            }
+        }
+
+        function initChart() {
+            drawChart();
+        }
+
+        function drawChart() {
+            const canvas = document.getElementById('cpuChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Adjust canvas dimension to container width
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Gradient Fill
+            const gradient = ctx.createLinearGradient(0, 0, 0, h);
+            gradient.addColorStop(0, 'rgba(216, 180, 248, 0.4)'); // Lavender
+            gradient.addColorStop(1, 'rgba(168, 230, 207, 0.05)'); // Mint
+
+            ctx.beginPath();
+            const step = w / (cpuHistory.length - 1);
+
+            ctx.moveTo(0, h);
+            for (let i = 0; i < cpuHistory.length; i++) {
+                const x = i * step;
+                const y = h - (cpuHistory[i] / 100) * (h - 10) - 5;
+                if (i === 0) ctx.lineTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Line Stroke
+            ctx.beginPath();
+            for (let i = 0; i < cpuHistory.length; i++) {
+                const x = i * step;
+                const y = h - (cpuHistory[i] / 100) * (h - 10) - 5;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = '#9333EA'; // Purple stroke
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function updateUI() {
+            // Uptime format
+            let hrs = Math.floor(uptimeSeconds / 3600).toString().padStart(2, '0');
+            let mins = Math.floor((uptimeSeconds % 3600) / 60).toString().padStart(2, '0');
+            let secs = (uptimeSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('sys-uptime').innerText = `${hrs}:${mins}:${secs}`;
+
+            // Cores and Canvas Chart
+            updateCoresUI();
+            drawChart();
+
+            // Overall CPU Text
+            let overallCpu = (cpuHistory[cpuHistory.length - 1] || 0).toFixed(1);
+            document.getElementById('overall-cpu-text').innerText = `${overallCpu}%`;
+
+            // RAM Stats
+            let usedRamMB = processes.reduce((acc, p) => acc + p.ram, 0) + 1200; // base system overhead
+            let totalRamMB = 16384; // 16 GB
+            let cachedRamMB = 3200;
+            let freeRamMB = Math.max(0, totalRamMB - usedRamMB - cachedRamMB);
+
+            let usedPct = ((usedRamMB / totalRamMB) * 100).toFixed(1);
+            let cachedPct = ((cachedRamMB / totalRamMB) * 100).toFixed(1);
+            let freePct = ((freeRamMB / totalRamMB) * 100).toFixed(1);
+
+            document.getElementById('ram-percent-text').innerText = `${usedPct}%`;
+            document.getElementById('ram-usage-text').innerText = `${(usedRamMB/1024).toFixed(1)} / 16.0 GB`;
+            
+            document.getElementById('ram-used-bar').style.width = `${usedPct}%`;
+            document.getElementById('ram-cached-bar').style.width = `${cachedPct}%`;
+            document.getElementById('ram-free-bar').style.width = `${freePct}%`;
+
+            document.getElementById('ram-used-mb').innerText = `${Math.round(usedRamMB)} MB`;
+            document.getElementById('ram-cache-mb').innerText = `${Math.round(cachedRamMB)} MB`;
+            document.getElementById('ram-free-mb').innerText = `${Math.round(freeRamMB)} MB`;
+
+            // Process Metrics Count
+            document.getElementById('metric-total').innerText = processes.length;
+            document.getElementById('metric-running').innerText = processes.filter(p => p.status === 'Running').length;
+            document.getElementById('metric-sleeping').innerText = processes.filter(p => p.status === 'Sleeping').length;
+            document.getElementById('metric-stopped').innerText = processes.filter(p => p.status === 'Stopped').length;
+            document.getElementById('metric-zombie').innerText = processes.filter(p => p.status === 'Zombie').length;
+
+            // Render active view
+            if (currentView === 'table') {
+                renderTable();
+            } else {
+                renderTree();
+            }
+
+            // Update modal if opened
+            if (selectedProcessPid !== null) {
+                const target = processes.find(p => p.pid === selectedProcessPid);
+                if (target) {
+                    document.getElementById('modal-process-cpu').innerText = `${target.cpu}%`;
+                    document.getElementById('modal-process-ram').innerText = `${target.ram} MB`;
+                }
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('process-table-body');
+            tbody.innerHTML = '';
+
+            let filtered = filterProcessesList();
+
+            // Sort logic
+            filtered.sort((a, b) => {
+                let valA = a[sortColumn];
+                let valB = b[sortColumn];
+
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+
+                if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+                if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            document.getElementById('showing-count').innerText = filtered.length;
+            document.getElementById('total-count').innerText = processes.length;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-slate-400">
+                            <i class="fa-solid fa-inbox text-2xl mb-2 block"></i>
+                            ไม่พบ Process ที่ค้นหา
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filtered.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-purple-50/40 transition-colors border-b border-slate-100/70 group';
+
+                // Status Badge styling
+                let statusBadge = getStatusBadgeHTML(p.status);
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-4 font-mono font-semibold text-slate-700">${p.pid}</td>
+                    <td class="py-2.5 px-4 font-mono font-medium text-purple-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-gear text-[10px] text-slate-400 group-hover:text-purple-500"></i>
+                        <span class="truncate max-w-[200px]" title="${p.name}">${p.name}</span>
+                    </td>
+                    <td class="py-2.5 px-4 text-slate-600 font-mono">${p.user}</td>
+                    <td class="py-2.5 px-4">${statusBadge}</td>
+                    <td class="py-2.5 px-4 text-right font-mono font-semibold ${p.cpu > 10 ? 'text-purple-700' : 'text-slate-600'}">${p.cpu.toFixed(1)}%</td>
+                    <td class="py-2.5 px-4 text-right font-mono text-sky-700">${p.ram.toFixed(1)}</td>
+                    <td class="py-2.5 px-4 text-center font-mono">
+                        <span class="px-2 py-0.5 bg-slate-100 rounded text-[11px] ${p.nice < 0 ? 'text-rose-600 font-bold' : p.nice > 0 ? 'text-blue-600' : 'text-slate-600'}">${p.nice}</span>
+                    </td>
+                    <td class="py-2.5 px-4 text-center">
+                        <button onclick="openModal(${p.pid})" class="bg-pastel-lavenderLight hover:bg-purple-200 text-pastel-lavenderDark border border-purple-200 px-3 py-1 rounded-xl font-semibold text-[11px] transition-all shadow-2xs active:scale-95">
+                            <i class="fa-solid fa-sliders mr-1"></i>จัดการ
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTree() {
+            const container = document.getElementById('process-tree-root');
+            container.innerHTML = '';
+
+            let filtered = filterProcessesList();
+            let filteredPids = new Set(filtered.map(p => p.pid));
+
+            // Find root processes (ppid == 0 or parent not in current process list)
+            const rootProcesses = processes.filter(p => p.ppid === 0 || !processes.some(parent => parent.pid === p.ppid));
+
+            if (rootProcesses.length === 0) {
+                container.innerHTML = `<div class="text-slate-400 py-6 text-center">ไม่พบโครงสร้าง Tree</div>`;
+                return;
+            }
+
+            rootProcesses.forEach(root => {
+                const treeNode = buildTreeNode(root, filteredPids);
+                if (treeNode) container.appendChild(treeNode);
+            });
+        }
+
+        function buildTreeNode(process, filteredPids) {
+            // Find children
+            const children = processes.filter(p => p.ppid === process.pid);
+            const matchesFilter = filteredPids.has(process.pid);
+
+            // If this node or any children match filter
+            const hasMatchingChildren = children.some(c => hasMatchingChildRecursive(c, filteredPids));
+
+            if (!matchesFilter && !hasMatchingChildren) {
+                return null;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'tree-node space-y-1 my-1';
+
+            const nodeRow = document.createElement('div');
+            nodeRow.className = 'flex items-center space-x-2 bg-slate-50 hover:bg-purple-50/50 p-2 rounded-xl border border-slate-100/80 transition-all group';
+
+            const hasChildNodes = children.length > 0;
+            const isExpanded = process.expanded !== false;
+
+            // Toggle Expand Button
+            let expandBtn = '';
+            if (hasChildNodes) {
+                expandBtn = `
+                    <button onclick="toggleExpand(${process.pid})" class="w-5 h-5 flex items-center justify-center rounded bg-slate-200 text-slate-600 hover:bg-purple-200 hover:text-purple-800 text-[10px] transition-colors">
+                        <i class="fa-solid ${isExpanded ? 'fa-minus' : 'fa-plus'}"></i>
+                    </button>
+                `;
+            } else {
+                expandBtn = `<span class="w-5 inline-block text-center text-slate-300">•</span>`;
+            }
+
+            let statusBadge = getStatusBadgeHTML(process.status);
+
+            nodeRow.innerHTML = `
+                ${expandBtn}
+                <span class="font-bold text-slate-700 w-14">PID: ${process.pid}</span>
+                <span class="font-semibold text-purple-900 group-hover:underline cursor-pointer" onclick="openModal(${process.pid})">${process.name}</span>
+                <span class="text-slate-400 text-[11px]">(${process.user})</span>
+                ${statusBadge}
+                <span class="text-xs text-purple-700 font-bold ml-auto">${process.cpu.toFixed(1)}% CPU</span>
+                <span class="text-xs text-sky-700 font-medium">${process.ram.toFixed(1)} MB</span>
+                <button onclick="openModal(${process.pid})" class="ml-2 bg-white hover:bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-lg text-[10px] font-semibold">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            `;
+
+            wrapper.appendChild(nodeRow);
+
+            // Render children if expanded
+            if (hasChildNodes && isExpanded) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'pl-6 ml-2 border-l-2 border-purple-100 space-y-1 mt-1';
+                children.forEach(child => {
+                    const childElement = buildTreeNode(child, filteredPids);
+                    if (childElement) childrenContainer.appendChild(childElement);
+                });
+                wrapper.appendChild(childrenContainer);
+            }
+
+            return wrapper;
+        }
+
+        function hasMatchingChildRecursive(proc, filteredPids) {
+            if (filteredPids.has(proc.pid)) return true;
+            const children = processes.filter(p => p.ppid === proc.pid);
+            return children.some(c => hasMatchingChildRecursive(c, filteredPids));
+        }
+
+        function toggleExpand(pid) {
+            const p = processes.find(item => item.pid === pid);
+            if (p) {
+                p.expanded = !p.expanded;
+                renderTree();
+            }
+        }
+
+        function getStatusBadgeHTML(status) {
+            if (status === 'Running') {
+                return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pastel-mintLight text-pastel-mintDark border border-emerald-200 inline-flex items-center"><i class="fa-solid fa-circle text-[6px] mr-1 text-emerald-500 animate-pulse"></i>Running</span>`;
+            } else if (status === 'Sleeping') {
+                return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pastel-blueLight text-pastel-blueDark border border-sky-200 inline-flex items-center"><i class="fa-solid fa-moon text-[8px] mr-1 text-sky-500"></i>Sleeping</span>`;
+            } else if (status === 'Stopped') {
+                return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pastel-peachLight text-pastel-peachDark border border-orange-200 inline-flex items-center"><i class="fa-solid fa-pause text-[8px] mr-1 text-orange-500"></i>Stopped</span>`;
+            } else { // Zombie
+                return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pastel-pinkLight text-pastel-pinkDark border border-rose-200 inline-flex items-center"><i class="fa-solid fa-ghost text-[8px] mr-1 text-rose-500"></i>Zombie</span>`;
+            }
+        }
+
+        function filterProcessesList() {
+            return processes.filter(p => {
+                const matchSearch = searchKeyword === '' || 
+                    p.name.toLowerCase().includes(searchKeyword.toLowerCase()) || 
+                    p.pid.toString().includes(searchKeyword);
+                
+                const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
+                const matchUser = userFilter === 'ALL' || p.user === userFilter;
+
+                return matchSearch && matchStatus && matchUser;
+            });
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const tabTable = document.getElementById('tab-table');
+            const tabTree = document.getElementById('tab-tree');
+            const viewTable = document.getElementById('view-table-container');
+            const viewTree = document.getElementById('view-tree-container');
+
+            if (view === 'table') {
+                tabTable.className = 'flex-1 md:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-purple-800 shadow-xs flex items-center justify-center space-x-2';
+                tabTree.className = 'flex-1 md:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center space-x-2';
+                viewTable.classList.remove('hidden');
+                viewTree.classList.add('hidden');
+                renderTable();
+            } else {
+                tabTree.className = 'flex-1 md:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold transition-all bg-white text-purple-800 shadow-xs flex items-center justify-center space-x-2';
+                tabTable.className = 'flex-1 md:flex-initial px-4 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center space-x-2';
+                viewTree.classList.remove('hidden');
+                viewTable.classList.add('hidden');
+                renderTree();
+            }
+        }
+
+        function handleSearch() {
+            searchKeyword = document.getElementById('search-input').value.trim();
+            updateUI();
+        }
+
+        function handleFilterChange() {
+            statusFilter = document.getElementById('filter-status').value;
+            userFilter = document.getElementById('filter-user').value;
+            updateUI();
+        }
+
+        function sortTable(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'desc';
+            }
+            // Reset icons
+            ['pid', 'name', 'user', 'status', 'cpu', 'ram', 'nice'].forEach(c => {
+                const icon = document.getElementById(`sort-icon-${c}`);
+                if (icon) icon.className = 'fa-solid fa-sort ml-1 opacity-50';
+            });
+            const activeIcon = document.getElementById(`sort-icon-${column}`);
+            if (activeIcon) {
+                activeIcon.className = `fa-solid fa-sort-${sortDirection === 'asc' ? 'up' : 'down'} ml-1 text-purple-700 opacity-100`;
+            }
+            renderTable();
+        }
+
+        function openModal(pid) {
+            const target = processes.find(p => p.pid === pid);
+            if (!target) return;
+
+            selectedProcessPid = pid;
+            document.getElementById('modal-process-name').innerText = target.name;
+            document.getElementById('modal-process-pid').innerText = target.pid;
+            document.getElementById('modal-process-ppid').innerText = target.ppid;
+            document.getElementById('modal-process-user').innerText = target.user;
+            document.getElementById('modal-process-threads').innerText = `${target.threads} threads`;
+            document.getElementById('modal-process-cpu').innerText = `${target.cpu}%`;
+            document.getElementById('modal-process-ram').innerText = `${target.ram} MB`;
+            document.getElementById('modal-nice-slider').value = target.nice;
+            updateNiceDisplay(target.nice);
+
+            const badgeContainer = document.getElementById('modal-process-status-badge');
+            badgeContainer.outerHTML = `<div id="modal-process-status-badge">${getStatusBadgeHTML(target.status)}</div>`;
+
+            const modal = document.getElementById('process-modal');
+            const card = document.getElementById('modal-card');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                card.classList.remove('scale-95', 'opacity-0');
+                card.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const card = document.getElementById('modal-card');
+            const modal = document.getElementById('process-modal');
+            
+            card.classList.remove('scale-100', 'opacity-100');
+            card.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                selectedProcessPid = null;
+            }, 200);
+        }
+
+        function updateNiceDisplay(val) {
+            document.getElementById('modal-nice-value').innerText = val;
+        }
+
+        function applyNiceChange() {
+            if (selectedProcessPid === null) return;
+            const val = parseInt(document.getElementById('modal-nice-slider').value);
+            const target = processes.find(p => p.pid === selectedProcessPid);
+            if (target) {
+                target.nice = val;
+                showToast(`อัปเดตค่า Nice Priority ของ PID ${target.pid} เป็น ${val}`, 'success');
+                updateUI();
+            }
+        }
+
+        function sendSignal(signalType) {
+            if (selectedProcessPid === null) return;
+            const targetIndex = processes.findIndex(p => p.pid === selectedProcessPid);
+            if (targetIndex === -1) return;
+
+            const target = processes[targetIndex];
+
+            if (signalType === 'SIGKILL') {
+                processes.splice(targetIndex, 1);
+                showToast(`ส่ง SIGKILL (9) สังหาร Process ${target.name} (PID: ${target.pid}) แล้ว`, 'error');
+                closeModal();
+            } else if (signalType === 'SIGTERM') {
+                target.status = 'Sleeping';
+                target.cpu = 0.0;
+                showToast(`ส่ง SIGTERM (15) ร้องขอปิด Process PID ${target.pid}`, 'warning');
+                setTimeout(() => {
+                    const idx = processes.findIndex(p => p.pid === target.pid);
+                    if (idx !== -1) {
+                        processes.splice(idx, 1);
+                        showToast(`Process ${target.name} (PID: ${target.pid}) ปิดตัวเรียบร้อยแล้ว`, 'info');
+                        updateUI();
+                    }
+                }, 1200);
+                closeModal();
+            } else if (signalType === 'SIGSTOP') {
+                target.status = 'Stopped';
+                target.cpu = 0.0;
+                showToast(`ส่ง SIGSTOP (19) หยุด Process PID ${target.pid} ชั่วคราว`, 'warning');
+                closeModal();
+            } else if (signalType === 'SIGCONT') {
+                target.status = 'Running';
+                showToast(`ส่ง SIGCONT (18) ให้ Process PID ${target.pid} ทำงานต่อ`, 'success');
+                closeModal();
+            } else if (signalType === 'SIGINT') {
+                showToast(`ส่ง SIGINT (2) Interrupt ไปยัง PID ${target.pid}`, 'info');
+            }
+
+            updateUI();
+        }
+
+        function spawnRandomProcess() {
+            const apps = [
+                { name: 'node server.js', user: 'pastel', ram: 110.5, threads: 8 },
+                { name: 'ffmpeg -i video.mp4', user: 'pastel', ram: 240.2, threads: 16 },
+                { name: 'python3 worker.py', user: 'pastel', ram: 85.0, threads: 2 },
+                { name: 'postgres: writer process', user: 'root', ram: 155.4, threads: 5 },
+                { name: 'curl https://api.internal', user: 'www-data', ram: 12.0, threads: 1 },
+                { name: 'go-microservice', user: 'pastel', ram: 45.8, threads: 6 }
+            ];
+
+            const template = apps[Math.floor(Math.random() * apps.length)];
+            const newPid = Math.floor(Math.random() * 8000) + 4000;
+            
+            // Random parent
+            const possibleParents = processes.filter(p => p.status !== 'Zombie');
+            const parent = possibleParents[Math.floor(Math.random() * possibleParents.length)] || processes[0];
+
+            const newProcess = {
+                pid: newPid,
+                ppid: parent.pid,
+                name: template.name,
+                user: template.user,
+                cpu: parseFloat((Math.random() * 12 + 1).toFixed(1)),
+                ram: template.ram,
+                status: 'Running',
+                nice: 0,
+                threads: template.threads,
+                expanded: true
+            };
+
+            processes.push(newProcess);
+            showToast(`สุ่มสร้าง Process ใหม่: ${newProcess.name} (PID: ${newPid})`, 'success');
+            updateUI();
+        }
+
+        function autoSpawnMinorTask() {
+            const minorNames = ['cat /var/log/syslog', 'grep -i error', 'sed -i s/foo/bar', 'sleep 10'];
+            const name = minorNames[Math.floor(Math.random() * minorNames.length)];
+            const newPid = Math.floor(Math.random() * 5000) + 5000;
+            
+            processes.push({
+                pid: newPid,
+                ppid: 1,
+                name: name,
+                user: 'pastel',
+                cpu: 0.2,
+                ram: 8.5,
+                status: 'Running',
+                nice: 0,
+                threads: 1,
+                expanded: true
+            });
+            updateUI();
+        }
+
+        function toggleStressTest() {
+            isStressTesting = !isStressTesting;
+            const btn = document.getElementById('stress-btn');
+            const text = document.getElementById('stress-btn-text');
+
+            if (isStressTesting) {
+                btn.className = 'bg-rose-100 hover:bg-rose-200 text-rose-700 border border-rose-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center space-x-1 animate-pulse';
+                text.innerText = 'ระงับ Stress Test';
+                showToast('🔥 เริ่มการจำลอง CPU Load หนัก (Stress Test Mode)', 'warning');
+                
+                // Boost process CPU
+                processes.forEach(p => {
+                    if (p.status === 'Running') p.cpu = parseFloat((Math.random() * 30 + 20).toFixed(1));
+                });
+            } else {
+                btn.className = 'bg-pastel-peachLight hover:bg-orange-200 text-pastel-peachDark border border-orange-300 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center space-x-1 active:scale-95';
+                text.innerText = 'Stress Test CPU';
+                showToast('ยกเลิกจำลอง CPU Load หนักเรียบร้อย', 'info');
+            }
+            updateUI();
+        }
+
+        function resetSystem() {
+            processes = [
+                { pid: 1, ppid: 0, name: 'systemd', user: 'root', cpu: 0.1, ram: 14.2, status: 'Running', nice: 0, threads: 1, expanded: true },
+                { pid: 412, ppid: 1, name: 'systemd-journald', user: 'root', cpu: 0.0, ram: 18.5, status: 'Sleeping', nice: -10, threads: 1, expanded: true },
+                { pid: 650, ppid: 1, name: 'sshd', user: 'root', cpu: 0.0, ram: 9.1, status: 'Sleeping', nice: 0, threads: 2, expanded: true },
+                { pid: 890, ppid: 650, name: 'bash', user: 'pastel', cpu: 0.0, ram: 6.4, status: 'Sleeping', nice: 0, threads: 1, expanded: true },
+                { pid: 1450, ppid: 890, name: 'python3 app.py', user: 'pastel', cpu: 15.4, ram: 148.2, status: 'Running', nice: 0, threads: 4, expanded: true },
+                { pid: 920, ppid: 1, name: 'lightdm', user: 'root', cpu: 0.2, ram: 34.0, status: 'Sleeping', nice: 0, threads: 3, expanded: true },
+                { pid: 1205, ppid: 920, name: 'gnome-shell', user: 'pastel', cpu: 5.2, ram: 310.8, status: 'Running', nice: 0, threads: 18, expanded: true },
+                { pid: 1620, ppid: 1205, name: 'chrome', user: 'pastel', cpu: 8.8, ram: 520.4, status: 'Running', nice: 0, threads: 32, expanded: true },
+                { pid: 1680, ppid: 1620, name: 'chrome --type=renderer', user: 'pastel', cpu: 14.1, ram: 285.0, status: 'Running', nice: 5, threads: 12, expanded: true },
+                { pid: 3105, ppid: 1, name: 'redis-server', user: 'redis', cpu: 0.9, ram: 45.2, status: 'Sleeping', nice: -2, threads: 4, expanded: true },
+                { pid: 3420, ppid: 1, name: 'nginx: master', user: 'root', cpu: 0.0, ram: 12.8, status: 'Sleeping', nice: 0, threads: 1, expanded: true },
+                { pid: 3421, ppid: 3420, name: 'nginx: worker', user: 'www-data', cpu: 2.1, ram: 24.6, status: 'Running', nice: 0, threads: 1, expanded: true },
+                { pid: 4010, ppid: 1, name: 'zombie_defunct', user: 'pastel', cpu: 0.0, ram: 0.0, status: 'Zombie', nice: 0, threads: 0, expanded: true }
+            ];
+
+            isStressTesting = false;
+            document.getElementById('stress-btn').className = 'bg-pastel-peachLight hover:bg-orange-200 text-pastel-peachDark border border-orange-300 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center space-x-1 active:scale-95';
+            document.getElementById('stress-btn-text').innerText = 'Stress Test CPU';
+
+            showToast('รีเซ็ตระบบกลับสู่สภาวะเริ่มต้นสำเร็จ', 'info');
+            updateUI();
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let bgStyles = 'bg-white text-slate-800 border-purple-200';
+            let icon = 'fa-circle-info text-purple-500';
+
+            if (type === 'success') {
+                bgStyles = 'bg-pastel-mintLight text-pastel-mintDark border-emerald-300';
+                icon = 'fa-circle-check text-emerald-600';
+            } else if (type === 'warning') {
+                bgStyles = 'bg-pastel-peachLight text-pastel-peachDark border-orange-300';
+                icon = 'fa-triangle-exclamation text-orange-600';
+            } else if (type === 'error') {
+                bgStyles = 'bg-pastel-pinkLight text-pastel-pinkDark border-pink-300';
+                icon = 'fa-skull text-rose-600';
+            }
+
+            toast.className = `p-3 rounded-2xl shadow-lg border text-xs flex items-center space-x-2 pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 ${bgStyles}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-sm flex-shrink-0"></i>
+                <span class="font-medium leading-tight">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
